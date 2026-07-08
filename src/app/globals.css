@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Brand accent — blueprint §22: #E67E6A coral */
+  --color-primary-50: #fdf4f2;
+  --color-primary-100: #fbe6e2;
+  --color-primary-200: #f8d1ca;
+  --color-primary-300: #f2b0a5;
+  --color-primary-400: #ec9280;
+  --color-primary-500: #e67e6a;
+  --color-primary-600: #d15c46;
+  --color-primary-700: #af4a37;
+  --color-primary-800: #913f30;
+  --color-primary-900: #79392d;
+  --color-primary-950: #411b14;
+
+  --color-ink-50: #f6f6f7;
+  --color-ink-100: #ececee;
+  --color-ink-200: #d5d5da;
+  --color-ink-300: #b1b2bb;
+  --color-ink-400: #878996;
+  --color-ink-500: #6c6d7b;
+  --color-ink-600: #575865;
+  --color-ink-700: #474852;
+  --color-ink-800: #3d3e46;
+  --color-ink-900: #36363d;
+  --color-ink-950: #121214;
+
+  --color-success: #1a7f4e;
+  --color-success-soft: #e3f5ec;
+  --color-warning: #9a6700;
+  --color-warning-soft: #fff3d6;
+  --color-danger: #c53030;
+  --color-danger-soft: #fde8e8;
+  --color-info: #1e63b4;
+  --color-info-soft: #e4eefb;
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+
+  --shadow-card: 0 1px 2px rgb(18 18 20 / 0.04), 0 4px 16px -4px rgb(18 18 20 / 0.06);
+  --shadow-pop: 0 4px 12px rgb(18 18 20 / 0.08), 0 16px 40px -8px rgb(18 18 20 / 0.18);
+}
+
+/* Surface tokens that flip with theme */
+:root {
+  /* Chart series — validated (dataviz six checks) for light surface #ffffff */
+  --chart-1: #d15c46;
+  --chart-2: #1e63b4;
+  --chart-3: #0e8a6a;
+  --chart-4: #8e5ba6;
+  --chart-5: #9a6700;
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --surface-2: #f4f2ef;
+  --border: #e7e4df;
+  --text: #1c1b1a;
+  --muted: #6d6a66;
+  --overlay: #00000066;
+  color-scheme: light;
+}
+.dark {
+  /* Chart series — validated for dark surface #1c1c1e */
+  --chart-1: #de7057;
+  --chart-2: #4e89cc;
+  --chart-3: #2aa37e;
+  --chart-4: #a97fc4;
+  --chart-5: #ae882c;
+  --bg: #121212;
+  --surface: #1c1c1e;
+  --surface-2: #26262a;
+  --border: #34343a;
+  --text: #f0efed;
+  --muted: #a3a19d;
+  --overlay: #000000a8;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-overlay: var(--overlay);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.dark .shadow-card,
+.dark .shadow-pop {
+  box-shadow: 0 0 0 1px rgb(255 255 255 / 0.04);
+}
+
+::selection {
+  background: #e67e6a55;
+}
+
+/* Subtle scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-rise { animation: rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-rise-1 { animation: rise 0.55s 0.07s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-rise-2 { animation: rise 0.55s 0.14s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-rise-3 { animation: rise 0.55s 0.21s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+.animate-fade { animation: fadeIn 0.3s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise, .animate-rise-1, .animate-rise-2, .animate-rise-3, .animate-fade { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* Prose for CMS/news bodies */
+.prose-univ p { margin-bottom: 1em; line-height: 1.75; }
+.prose-univ p:last-child { margin-bottom: 0; }

@@ -1,0 +1,554 @@
+// UnivOS canonical data model (modular monolith adaptation of blueprint Section 6)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity ----------
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String // STUDENT | PARENT | FACULTY | HOD | PRINCIPAL | ADMISSION_OFFICER | ACCOUNTS | EXAM_CONTROLLER | LIBRARIAN | WARDEN | PLACEMENT_OFFICER | ADMIN
+  phone        String?
+  status       String   @default("active")
+  createdAt    DateTime @default(now())
+
+  student           Student?
+  facultyProfile    FacultyProfile?
+  notifications     Notification[]
+  auditEvents       AuditEvent[]
+  loans             Loan[]
+  leaveRequests     LeaveRequest[]     @relation("leaveRequester")
+  complaintsRaised  Complaint[]
+  wardsAsGuardian   Guardianship[]     @relation("guardian")
+}
+
+model Guardianship {
+  id           String  @id @default(uuid())
+  guardianId   String
+  studentId    String
+  relationship String
+  guardian     User    @relation("guardian", fields: [guardianId], references: [id])
+  student      Student @relation(fields: [studentId], references: [id])
+
+  @@unique([guardianId, studentId])
+}
+
+// ---------- Academic structure ----------
+model Department {
+  id       String    @id @default(uuid())
+  code     String    @unique
+  name     String
+  slug     String    @unique
+  about    String
+  hodName  String?
+  programs Program[]
+  faculty  FacultyProfile[]
+}
+
+model Program {
+  id            String       @id @default(uuid())
+  slug          String       @unique
+  name          String
+  level         String // UG | PG | PhD | Diploma
+  departmentId  String
+  durationTerms Int
+  totalCredits  Int
+  seats         Int
+  feePerTermMinor Int // paise
+  eligibility   String
+  about         String
+  outcomes      String // JSON array of strings
+  department    Department   @relation(fields: [departmentId], references: [id])
+  courses       Course[]
+  students      Student[]
+  applications  Application[]
+  feeStructures FeeStructure[]
+}
+
+model Course {
+  id        String    @id @default(uuid())
+  code      String    @unique
+  title     String
+  credits   Int
+  semester  Int
+  type      String // core | elective | lab
+  programId String
+  about     String    @default("")
+  program   Program   @relation(fields: [programId], references: [id])
+  sections  Section[]
+  results   Result[]
+  examSchedules ExamSchedule[]
+}
+
+model Term {
+  id        String   @id @default(uuid())
+  name      String
+  startsAt  DateTime
+  endsAt    DateTime
+  isCurrent Boolean  @default(false)
+  sections  Section[]
+}
+
+model Section {
+  id         String   @id @default(uuid())
+  courseId   String
+  termId     String
+  facultyId  String
+  room       String
+  capacity   Int      @default(60)
+  course     Course   @relation(fields: [courseId], references: [id])
+  term       Term     @relation(fields: [termId], references: [id])
+  faculty    FacultyProfile @relation(fields: [facultyId], references: [id])
+  slots      TimetableSlot[]
+  enrollments Enrollment[]
+  sessions   AttendanceSession[]
+  assignments Assignment[]
+  materials  Material[]
+}
+
+model TimetableSlot {
+  id        String  @id @default(uuid())
+  sectionId String
+  dayOfWeek Int // 1=Mon .. 6=Sat
+  startMin  Int // minutes from midnight
+  endMin    Int
+  room      String
+  section   Section @relation(fields: [sectionId], references: [id])
+}
+
+model FacultyProfile {
+  id           String     @id @default(uuid())
+  userId       String     @unique
+  departmentId String
+  designation  String
+  bio          String
+  interests    String // comma separated
+  user         User       @relation(fields: [userId], references: [id])
+  department   Department @relation(fields: [departmentId], references: [id])
+  sections     Section[]
+}
+
+// ---------- Students ----------
+model Student {
+  id           String   @id @default(uuid())
+  userId       String   @unique
+  programId    String
+  rollNo       String   @unique
+  batchYear    Int
+  semester     Int      @default(1)
+  status       String   @default("enrolled")
+  category     String   @default("General")
+  hostelResident Boolean @default(false)
+  user         User     @relation(fields: [userId], references: [id])
+  program      Program  @relation(fields: [programId], references: [id])
+  enrollments  Enrollment[]
+  attendance   AttendanceRecord[]
+  submissions  AssignmentSubmission[]
+  results      Result[]
+  invoices     Invoice[]
+  allocations  HostelAllocation[]
+  outpasses    Outpass[]
+  placementApps PlacementApplication[]
+  guardianships Guardianship[]
+}
+
+model Enrollment {
+  id        String  @id @default(uuid())
+  studentId String
+  sectionId String
+  status    String  @default("registered") // registered | dropped | completed
+  student   Student @relation(fields: [studentId], references: [id])
+  section   Section @relation(fields: [sectionId], references: [id])
+
+  @@unique([studentId, sectionId])
+}
+
+// ---------- Attendance ----------
+model AttendanceSession {
+  id        String   @id @default(uuid())
+  sectionId String
+  date      DateTime
+  method    String   @default("qr")
+  code      String // rotating join code
+  status    String   @default("open") // open | closed
+  createdAt DateTime @default(now())
+  section   Section  @relation(fields: [sectionId], references: [id])
+  records   AttendanceRecord[]
+}
+
+model AttendanceRecord {
+  id             String   @id @default(uuid())
+  sessionId      String
+  studentId      String
+  status         String // present | absent | late | excused
+  markedBy       String // self | faculty
+  overrideReason String?
+  createdAt      DateTime @default(now())
+  session        AttendanceSession @relation(fields: [sessionId], references: [id])
+  student        Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([sessionId, studentId])
+}
+
+// ---------- Teaching & assessment ----------
+model Assignment {
+  id          String   @id @default(uuid())
+  sectionId   String
+  title       String
+  description String
+  dueAt       DateTime
+  maxMarks    Int
+  section     Section  @relation(fields: [sectionId], references: [id])
+  submissions AssignmentSubmission[]
+}
+
+model AssignmentSubmission {
+  id           String    @id @default(uuid())
+  assignmentId String
+  studentId    String
+  contentText  String
+  submittedAt  DateTime  @default(now())
+  marks        Int?
+  feedback     String?
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  student      Student    @relation(fields: [studentId], references: [id])
+
+  @@unique([assignmentId, studentId])
+}
+
+model Material {
+  id        String  @id @default(uuid())
+  sectionId String
+  title     String
+  kind      String // notes | slides | video | link
+  body      String
+  createdAt DateTime @default(now())
+  section   Section @relation(fields: [sectionId], references: [id])
+}
+
+// ---------- Examinations ----------
+model Exam {
+  id       String @id @default(uuid())
+  name     String
+  type     String // internal | end_term | backlog
+  termName String
+  status   String @default("scheduled") // scheduled | completed
+  schedules ExamSchedule[]
+}
+
+model ExamSchedule {
+  id          String   @id @default(uuid())
+  examId      String
+  courseId    String
+  date        DateTime
+  startMin    Int
+  durationMin Int
+  room        String
+  exam        Exam     @relation(fields: [examId], references: [id])
+  course      Course   @relation(fields: [courseId], references: [id])
+}
+
+model Result {
+  id        String  @id @default(uuid())
+  studentId String
+  courseId  String
+  termName  String
+  marks     Int
+  maxMarks  Int     @default(100)
+  grade     String
+  gradePoints Float
+  credits   Int
+  status    String  @default("provisional") // provisional | moderated | published
+  student   Student @relation(fields: [studentId], references: [id])
+  course    Course  @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId, termName])
+}
+
+// ---------- Finance ----------
+model FeeStructure {
+  id        String  @id @default(uuid())
+  programId String
+  name      String
+  heads     String // JSON [{head, amountMinor}]
+  totalMinor Int
+  program   Program @relation(fields: [programId], references: [id])
+}
+
+model Invoice {
+  id         String   @id @default(uuid())
+  number     String   @unique
+  studentId  String
+  termLabel  String
+  lineItems  String // JSON
+  netMinor   Int
+  paidMinor  Int      @default(0)
+  status     String   @default("pending") // pending | partial | paid | overdue
+  dueDate    DateTime
+  createdAt  DateTime @default(now())
+  student    Student  @relation(fields: [studentId], references: [id])
+  payments   Payment[]
+}
+
+model Payment {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  amountMinor Int
+  method      String // upi | card | netbanking | cash
+  reference   String
+  status      String   @default("success")
+  createdAt   DateTime @default(now())
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id])
+}
+
+// ---------- Admissions ----------
+model AdmissionCycle {
+  id       String   @id @default(uuid())
+  name     String
+  opensAt  DateTime
+  closesAt DateTime
+  isCurrent Boolean @default(true)
+  applications Application[]
+}
+
+model Application {
+  id            String   @id @default(uuid())
+  refNo         String   @unique
+  cycleId       String
+  programId     String
+  applicantName String
+  email         String
+  phone         String
+  dob           String
+  previousSchool String
+  qualifyingPct Float
+  entranceScore Float?
+  category      String   @default("General")
+  statement     String
+  status        String   @default("submitted") // submitted | under_review | shortlisted | offered | accepted | rejected | waitlisted | enrolled
+  officerNote   String?
+  compositeScore Float?
+  offerDeadline DateTime?
+  createdAt     DateTime @default(now())
+  cycle         AdmissionCycle @relation(fields: [cycleId], references: [id])
+  program       Program  @relation(fields: [programId], references: [id])
+}
+
+// ---------- Library ----------
+model LibraryItem {
+  id             String @id @default(uuid())
+  title          String
+  authors        String
+  isbn           String @unique
+  category       String
+  copiesTotal    Int
+  copiesAvailable Int
+  loans          Loan[]
+}
+
+model Loan {
+  id         String    @id @default(uuid())
+  itemId     String
+  borrowerId String
+  issuedAt   DateTime  @default(now())
+  dueAt      DateTime
+  returnedAt DateTime?
+  renewals   Int       @default(0)
+  fineMinor  Int       @default(0)
+  item       LibraryItem @relation(fields: [itemId], references: [id])
+  borrower   User      @relation(fields: [borrowerId], references: [id])
+}
+
+// ---------- Hostel ----------
+model Hostel {
+  id       String @id @default(uuid())
+  name     String
+  gender   String
+  capacity Int
+  rooms    HostelRoom[]
+}
+
+model HostelRoom {
+  id       String @id @default(uuid())
+  hostelId String
+  number   String
+  capacity Int
+  hostel   Hostel @relation(fields: [hostelId], references: [id])
+  allocations HostelAllocation[]
+}
+
+model HostelAllocation {
+  id        String   @id @default(uuid())
+  studentId String
+  roomId    String
+  fromDate  DateTime @default(now())
+  status    String   @default("active")
+  student   Student  @relation(fields: [studentId], references: [id])
+  room      HostelRoom @relation(fields: [roomId], references: [id])
+}
+
+model Outpass {
+  id           String    @id @default(uuid())
+  studentId    String
+  reason       String
+  outAt        DateTime
+  expectedInAt DateTime
+  status       String    @default("pending") // pending | approved | rejected | closed
+  decidedBy    String?
+  createdAt    DateTime  @default(now())
+  student      Student   @relation(fields: [studentId], references: [id])
+}
+
+// ---------- Placement ----------
+model Company {
+  id      String @id @default(uuid())
+  name    String @unique
+  sector  String
+  website String
+  postings JobPosting[]
+}
+
+model JobPosting {
+  id        String   @id @default(uuid())
+  companyId String
+  title     String
+  type      String // job | internship
+  ctcLakhs  Float
+  minCgpa   Float
+  deadline  DateTime
+  location  String
+  description String
+  status    String   @default("open")
+  company   Company  @relation(fields: [companyId], references: [id])
+  applications PlacementApplication[]
+}
+
+model PlacementApplication {
+  id        String   @id @default(uuid())
+  postingId String
+  studentId String
+  status    String   @default("applied") // applied | shortlisted | interview | offered | rejected | accepted
+  note      String?
+  createdAt DateTime @default(now())
+  posting   JobPosting @relation(fields: [postingId], references: [id])
+  student   Student  @relation(fields: [studentId], references: [id])
+
+  @@unique([postingId, studentId])
+}
+
+// ---------- Grievance ----------
+model Complaint {
+  id          String   @id @default(uuid())
+  refNo       String   @unique
+  category    String
+  title       String
+  description String
+  anonymous   Boolean  @default(false)
+  raisedById  String
+  priority    String   @default("medium")
+  status      String   @default("open") // open | in_progress | resolved | closed
+  resolution  String?
+  createdAt   DateTime @default(now())
+  raisedBy    User     @relation(fields: [raisedById], references: [id])
+}
+
+// ---------- Leave ----------
+model LeaveRequest {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String // casual | medical | duty | academic
+  fromDate  DateTime
+  toDate    DateTime
+  reason    String
+  status    String   @default("pending")
+  decidedBy String?
+  createdAt DateTime @default(now())
+  user      User     @relation("leaveRequester", fields: [userId], references: [id])
+}
+
+// ---------- CMS, events, news ----------
+model NewsPost {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  excerpt     String
+  body        String
+  tag         String
+  publishedAt DateTime @default(now())
+  published   Boolean  @default(true)
+}
+
+model CampusEvent {
+  id          String   @id @default(uuid())
+  slug        String   @unique
+  title       String
+  kind        String // seminar | cultural | sports | workshop | convocation
+  description String
+  location    String
+  startsAt    DateTime
+  endsAt      DateTime
+  capacity    Int
+  registrations EventRegistration[]
+}
+
+model EventRegistration {
+  id      String @id @default(uuid())
+  eventId String
+  name    String
+  email   String
+  createdAt DateTime @default(now())
+  event   CampusEvent @relation(fields: [eventId], references: [id])
+
+  @@unique([eventId, email])
+}
+
+model Lead {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  topic     String
+  message   String
+  status    String   @default("new")
+  createdAt DateTime @default(now())
+}
+
+// ---------- Platform ----------
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  category  String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actorName  String
+  action     String
+  entityType String
+  entityId   String
+  meta       String   @default("{}")
+  createdAt  DateTime @default(now())
+  actor      User?    @relation(fields: [actorId], references: [id])
+}
+
+model KnowledgeChunk {
+  id      String @id @default(uuid())
+  title   String
+  content String
+  tags    String
+  link    String?
+}
