@@ -1,8 +1,8 @@
-# UnivOS — AI-Powered University Management System
+# University Management System
 
 > **Aurora University** demo tenant · Built end-to-end from the [`University-website.md`](./University-website.md) master blueprint (SRS/PRD/TDD in one document).
 
-UnivOS digitizes the complete lifecycle of a university community — prospective applicant → enrolled student → graduate — unifying the public website, admissions, academics, attendance, examinations, finance, hostel, library, placements, grievances and AI-driven assistance into **one working full-stack application** with role-based portals for 12 user roles.
+This website digitizes the complete lifecycle of a university community — prospective applicant → enrolled student → graduate — unifying the public website, admissions, academics, attendance, examinations, finance, hostel, library, placements, grievances and AI-driven assistance into **one working full-stack application** with role-based portals for 12 user roles.
 
 **Stack:** Next.js 15 (App Router) · TypeScript · Tailwind CSS v4 · Prisma ORM · SQLite · JWT (jose) · React 19 Server Components + Server Actions
 
